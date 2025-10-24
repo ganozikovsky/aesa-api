@@ -1,0 +1,146 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  EMP
+}
+
+enum BookingStatus {
+  PENDIENTE
+  COBRADO
+  CANCELADO
+}
+
+enum InventoryType {
+  PURCHASE
+  ADJUST
+  SALE
+}
+
+enum PaymentMethodType {
+  EFECTIVO
+  DEBITO
+  CREDITO
+  TRANSFERENCIA
+  QR
+}
+
+model User {
+  id               String  @id @default(uuid())
+  username         String  @unique
+  passwordHash     String
+  role             Role
+  refreshHash      String?
+  createdAt        DateTime @default(now())
+  sales            Sale[]
+  bookingsCreated  Booking[] @relation("BookingsCreated")
+  bookingsCharged  Booking[] @relation("BookingsCharged")
+  inventoryMoves   InventoryMovement[]
+}
+
+model PaymentMethod {
+  id        String @id @default(uuid())
+  name      String @unique
+  type      PaymentMethodType @unique
+  sales     Sale[]
+  bookings  Booking[]
+}
+
+model Court {
+  id             String @id @default(uuid())
+  name           String @unique
+  active         Boolean @default(true)
+  defaultPrice   Decimal @db.Decimal(10, 2) @default(0)
+  bookings       Booking[]
+}
+
+model Booking {
+  id               String @id @default(uuid())
+  courtId          String
+  court            Court @relation(fields: [courtId], references: [id])
+  startAt          DateTime
+  durationMin      Int
+  listPrice        Decimal @db.Decimal(10, 2)
+  discount         Decimal @db.Decimal(10, 2)
+  status           BookingStatus @default(PENDIENTE)
+  paymentMethodId  String?
+  paymentMethod    PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+  totalPaid        Decimal? @db.Decimal(10, 2)
+  createdByUserId  String
+  createdByUser    User @relation("BookingsCreated", fields: [createdByUserId], references: [id])
+  chargedByUserId  String?
+  chargedByUser    User? @relation("BookingsCharged", fields: [chargedByUserId], references: [id])
+  chargedAt        DateTime?
+  createdAt        DateTime @default(now())
+}
+
+model Product {
+  id                 String  @id @default(uuid())
+  name               String
+  sku                String? @unique
+  salePrice          Decimal @db.Decimal(10, 2)
+  purchaseCost       Decimal @db.Decimal(10, 2)
+  lowStockThreshold  Int @default(0)
+  active             Boolean @default(true)
+  items              SaleItem[]
+  movements          InventoryMovement[]
+  inventoryStock     InventoryStock?
+}
+
+model InventoryStock {
+  id        String @id @default(uuid())
+  productId String @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stock     Int @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model InventoryMovement {
+  id        String @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  qty       Int
+  unitCost  Decimal @db.Decimal(10, 2)
+  type      InventoryType
+  refSaleId String?
+  userId    String?
+  user      User? @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Sale {
+  id              String @id @default(uuid())
+  userId          String
+  user            User @relation(fields: [userId], references: [id])
+  paymentMethodId String
+  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  total           Decimal @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+  items           SaleItem[]
+}
+
+model SaleItem {
+  id                String @id @default(uuid())
+  saleId            String
+  sale              Sale @relation(fields: [saleId], references: [id])
+  productId         String
+  product           Product @relation(fields: [productId], references: [id])
+  qty               Int
+  unitPrice         Decimal @db.Decimal(10, 2)
+  unitCostSnapshot  Decimal @db.Decimal(10, 2)
+  lineTotal         Decimal @db.Decimal(10, 2)
+}
