@@ -25,6 +25,10 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node -T prisma/seed.ts"
   },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^4.0.2",
